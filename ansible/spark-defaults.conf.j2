@@ -1,0 +1,9 @@
+# spark-defaults.conf.j2
+
+# Spark Master
+spark.master            spark://{{ hostvars[groups['spark-master'][0]]['ansible_default_ipv4']['address'] }}:7077
+
+# Spark Worker
+spark.worker.cleanup.enabled           true
+spark.worker.cleanup.interval          900
+spark.worker.cleanup.appDataTtl        1800

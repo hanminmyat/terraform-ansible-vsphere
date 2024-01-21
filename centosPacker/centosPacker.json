@@ -45,12 +45,20 @@
             "vm_name": "{{user `vm-name`}}"
         }
     ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "inline": [
+                "echo 'nameserver 8.8.8.8' | sudo tee -a /etc/resolv.conf"
+            ]
+        }
+    ],
     "variables": {
         "iso_url": "[datastore1] ISO/CentOS-7-x86_64.iso",
         "vm-cpu-num": "1",
         "vm-disk-size": "25600",
         "vm-mem-size": "1024",
-        "vm-name": "CentOSTemplate",
+        "vm-name": "CentOSTemplate02",
         "vsphere-cluster": "Region01",
         "vsphere-datacenter": "Datacenter",
         "vsphere-datastore": "datastore1",

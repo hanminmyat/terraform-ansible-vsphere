@@ -1,0 +1,24 @@
+- name: Configure SSH on vSphere VMs
+  hosts: spark-cluster
+  become: true
+
+  tasks:
+    - name: Ensure /root/.ssh directory exists
+      file:
+        path: /root/.ssh
+        state: directory
+        mode: '0700'
+      ignore_errors: yes
+
+    - name: Add VM host keys to known_hosts
+      ansible.builtin.lineinfile:
+        path: /root/.ssh/known_hosts
+        create: yes
+        line: "{{ lookup('pipe', 'ssh-keyscan ' + inventory_hostname) }}"
+      become_user: root
+
+    - name: Append host keys to known_hosts
+      ansible.builtin.lineinfile:
+        path: /root/.ssh/known_hosts
+        line: "{{ lookup('pipe', 'ssh-keyscan ' + inventory_hostname) }}"
+      become_user: root

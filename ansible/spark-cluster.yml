@@ -1,52 +1,92 @@
 ---
-- hosts: spark-cluster
+- name: Install and Setup Apache Spark Cluster
+  hosts: spark-cluster
   become: true
+
   tasks:
-    - name: Install Java (OpenJDK)
+    - name: Add nameserver entry to /etc/resolv.conf
+      ansible.builtin.lineinfile:
+        path: /etc/resolv.conf
+        line: "nameserver 8.8.8.8"
+    - name: Update system packages
+      yum:
+        name: '*'
+        state: latest
+      become_user: root
+
+    - name: Install Java
       yum:
         name: java-1.8.0-openjdk
         state: present
+      become_user: root
 
-    - name: Download and extract Apache Spark
+    - name: Download and Extract Apache Spark
       get_url:
-        url: "https://downloads.apache.org/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz"
+        url: "https://dlcdn.apache.org/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz"
         dest: "/opt/"
-      delegate_to: localhost
+        validate_certs: no
+      become_user: root
 
     - name: Extract Spark archive
       ansible.builtin.unarchive:
-        src: "/opt/spark-3.2.0-bin-hadoop3.2.tgz"
+        src: "/opt/spark-3.5.0-bin-hadoop3.tgz"
         dest: "/opt/"
-      delegate_to: localhost
+        remote_src: true
+      become_user: root
 
-    - name: Create Spark directories
-      file:
-        path: "{{ item }}"
+    - name: Ensure /etc/profile.d directory exists
+      ansible.builtin.file:
+        path: /etc/profile.d
         state: directory
-        mode: 0755
-      loop:
-        - "/opt/spark-3.2.0-bin-hadoop3.2/logs"
-        - "/opt/spark-3.2.0-bin-hadoop3.2/work"
+      become_user: root
 
-    - name: Configure Spark environment
+    - name: Set SPARK_HOME and update PATH in ~/.bashrc
+      lineinfile:
+        path: ~/.bashrc
+        line: |
+          export SPARK_HOME=/opt/spark-3.5.0-bin-hadoop3
+          export PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
+      become_user: root 
+
+    - name: Create or update spark-env.sh with SPARK_MASTER_HOST
+      blockinfile:
+        path: "/opt/spark-3.5.0-bin-hadoop3/conf/spark-env.sh"
+        block: |
+          # Custom Spark configurations
+          export SPARK_MASTER_HOST=10.10.10.30
+      become_user: root
+      ignore_errors: yes
+
+    - name: Configure Spark
       template:
-        src: "spark-env.sh.j2"
-        dest: "/opt/spark-3.2.0-bin-hadoop3.2/conf/spark-env.sh"
+        src: spark-defaults.conf.j2
+        dest: "/opt/spark-3.5.0-bin-hadoop3/conf/spark-defaults.conf"
+      become_user: root
 
     - name: Start Spark Master
-      command: "/opt/spark-3.2.0-bin-hadoop3.2/sbin/start-master.sh"
+      command: "{{ spark_home }}/sbin/start-master.sh"
       environment:
-        SPARK_HOME: "/opt/spark-3.2.0-bin-hadoop3.2"
-      register: spark_master_output
-      ignore_errors: true
+        SPARK_HOME: "/opt/spark-3.5.0-bin-hadoop3"
+      become_user: root
+      async: 45
+      poll: 0
+      register: master_start
 
-    - name: Print Spark Master Web UI URL
-      debug:
-        msg: "Spark Master Web UI: http://{{ ansible_host }}:8080"
-      when: spark_master_output.rc == 0
+    - name: Wait for Spark Master to start
+      async_status:
+        jid: "{{ master_start.ansible_job_id }}"
+      register: master_status
+      until: master_status.finished
+      retries: 60
+      delay: 5
 
-    - name: Start Spark Worker
-      command: "/opt/spark-3.2.0-bin-hadoop3.2/sbin/start-worker.sh spark://{{ spark_master_url.stdout_lines[0] }}"
+    - name: Start Spark Workers
+      command: "{{ spark_home }}/sbin/start-worker.sh spark://{{ hostvars[groups['spark-master'][0]]['ansible_default_ipv4']['address'] }}:7077"
       environment:
-        SPARK_HOME: "/opt/spark-3.2.0-bin-hadoop3.2"
-      loop: "{{ groups['spark-cluster'] }}"
+        SPARK_HOME: "/opt/spark-3.5.0-bin-hadoop3"
+      become_user: root
+
+  handlers:
+    - name: Stop Spark Cluster
+      command: "/opt/spark-3.5.0-bin-hadoop3/sbin/stop-all.sh"
+      become_user: root

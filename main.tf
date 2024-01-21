@@ -76,21 +76,18 @@ resource "vsphere_virtual_machine" "vm" {
     }
   }
 
-  provisioner "remote-exec" {
-    inline = [
-      # Your existing remote-exec commands
+  # provisioner "remote-exec" {
+  #   inline = [
+  #     "#!/bin/bash",
+  #     "echo \"$(cat ~/.ssh/id_rsa.pub)\" >> ~/.ssh/authorized_keys",
+  #     "chmod 600 ~/.ssh/authorized_keys"
+  #   ]
 
-      # For example, to update the mirror in CentOS:
-      "sudo sed -i 's/mirror.centos.org/mirror.example.com/' /etc/yum.repos.d/CentOS-Base.repo",
-      
-      # Additional configurations can be added here
-    ]
-
-    connection {
-      type        = "ssh"
-      host        = self.network_interface[count.index].ipv4_address
-      user        = "root"
-      private_key = file("~/.ssh/id_rsa.pub")
-    }
-  }
+  #   connection {
+  #     type        = "ssh"
+  #     host        = self.clone.0.customize.0.network_interface.0.ipv4_address 
+  #     user        = "root"
+  #     private_key = file("~/.ssh/id_rsa")
+  #   }
+  # }
 }
