@@ -1,0 +1,68 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Install Java
+      yum:
+        name: java-1.8.0-openjdk
+        state: present
+
+    - name: Download and extract Spark
+      get_url:
+        url: "https://downloads.apache.org/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz"
+        dest: "/opt/"
+        mode: 0755
+      notify: Extract Spark
+
+    - name: Create Spark directory
+      file:
+        path: "/opt/spark"
+        state: directory
+
+    - name: Move Spark files
+      command: "mv /opt/spark-*/* /opt/spark/"
+      args:
+        creates: "/opt/spark/bin/spark-submit"
+      notify: Set Spark environment variables
+
+    - name: Set Spark environment variables
+      template:
+        src: spark-env.sh.j2
+        dest: "/opt/spark/conf/spark-env.sh"
+      notify: Configure Spark Master
+
+    - name: Extract Spark
+      command: "tar zxvf /opt/spark-3.5.0-bin-hadoop3.tgz -C /opt/"
+      args:
+        chdir: "/opt/"
+      notify: Move Spark files
+
+  handlers:
+    - name: Extract Spark
+      command: "tar zxvf /opt/spark-3.5.0-bin-hadoop3.tgz -C /opt/"
+      args:
+        chdir: "/opt/"
+      notify: Move Spark files
+
+    - name: Set Spark environment variables
+      lineinfile:
+        path: "/etc/environment"
+        line: "export PATH=$PATH:/opt/spark/bin"
+      notify: Configure Spark Master
+
+    - name: Configure Spark Master
+      template:
+        src: spark-defaults.conf.j2
+        dest: "/opt/spark/conf/spark-defaults.conf"
+      notify: Start Spark Master
+
+    - name: Start Spark Master
+      command: "/opt/spark/sbin/start-master.sh"
+      args:
+        creates: "/opt/spark/work/app"
+      notify: Start Spark Workers
+
+    - name: Start Spark Workers
+      command: "/opt/spark/sbin/start-worker.sh spark://{{ ansible_default_ipv4.address }}:7077"
+      args:
+        creates: "/opt/spark/work"

@@ -1,0 +1,5 @@
+- name: Configure Spark Worker
+  template:
+    src: "/home/hanmin/source/terraform-ansible-vsphere/ansiblev2/spark-defaults-worker.conf.j2"
+    dest: "/opt/spark-3.5.0-bin-hadoop3/conf/spark-defaults-worker.conf"
+  notify: Start Spark Worker

@@ -1,0 +1,125 @@
+---
+- hosts: all
+  become: true
+  vars:
+    spark_version: "spark-3.3.4" # Modify if needed
+    java_home: "/usr/lib/jvm/java-1.8.0-openjdk" # Adjust if installed in a different location
+    scala_version: "2.12" # Matches Spark 3.3.3
+    spark_archive_path: "/home/hanmin/Downloads/spark-3.3.4-bin-hadoop3.tgz"
+
+  tasks:
+    - name: Add nameserver entry to /etc/resolv.conf
+      ansible.builtin.lineinfile:
+        path: /etc/resolv.conf
+        line: "nameserver 8.8.8.8"
+
+    - name: Update package lists
+      yum:
+        name: "*"
+        state: latest
+
+    - name: Install required packages
+      yum:
+        name:
+          - wget
+          - unzip
+          - openssl-devel
+          - gcc
+          - make
+          - python3 # For `ansible.builtin.systemd` module
+          - ca-certificates
+        state: present
+
+    - name: Install Java
+      yum:
+        name: java-1.8.0-openjdk
+        state: present
+
+    - name: Copy Spark archive to remote
+      ansible.builtin.copy:
+        src: "{{ spark_archive_path }}"
+        dest: "/opt/spark-3.3.4-bin-hadoop3.tgz"
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: Extract Spark and create directory if not exists
+      ansible.builtin.command:
+        cmd: "tar zxvf /opt/spark-3.3.4-bin-hadoop3.tgz -C /opt/"
+        creates: "/opt/spark-3.3.4-bin-hadoop3"
+      args:
+        creates: "/opt/spark-3.3.4-bin-hadoop3"
+      become: true
+
+    - name: Create Spark directory under /opt
+      ansible.builtin.file:
+        path: "/opt/spark"
+        state: directory
+        mode: '0755'
+      become: true
+
+    - name: Move Spark files
+      ansible.builtin.command:
+        cmd: "mv /opt/spark-3.3.4-bin-hadoop3/* /opt/spark"
+      args:
+        chdir: "/opt/"
+      become: true
+
+    - name: Create Spark directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: 0755
+      loop:
+        - /opt/spark/conf
+        - /opt/spark/logs
+        - /opt/spark/work
+
+    - name: Set JAVA_HOME in Spark environment variables
+      lineinfile:
+        path: /opt/spark/conf/spark-env.sh
+        line: "export JAVA_HOME={{ java_home }}"
+        create: yes
+
+    - name: Set SCALA_HOME in Spark environment variables
+      lineinfile:
+        path: /opt/spark/conf/spark-env.sh
+        line: "export SCALA_HOME=/usr/share/scala/{{ scala_version }}"
+        create: yes
+
+    - name: Install Spark Master
+      command: "/opt/spark/sbin/start-master.sh"
+      args:
+        creates: "/opt/spark/work/app"
+      when: inventory_hostname == "10.10.10.30"
+
+    - name: Start Spark Workers
+      command: "/opt/spark/sbin/start-worker.sh spark://{{ groups['spark-master'][0] }}:7077"
+      args:
+        creates: "/opt/spark/work"
+      when: inventory_hostname in groups["spark-workers"]
+
+    - name: Configure Spark Master (on master node)
+      template:
+        src: spark-defaults.conf.j2
+        dest: /opt/spark/conf/spark-defaults.conf
+        owner: root
+        group: root
+        mode: 0644
+      when: inventory_hostname == "10.10.10.30"
+
+    - name: Configure Spark Worker (on worker nodes)
+      template:
+        src: spark-defaults-worker.conf.j2
+        dest: /opt/spark/conf/spark-defaults.conf
+        owner: root
+        group: root
+        mode: 0644
+      when: inventory_hostname in groups["spark-workers"]
+
+    - name: Verify Spark cluster status (for demonstration)
+      command: "/opt/spark/bin/spark-shell --master spark://10.10.10.30:7077"
+      register: spark_shell_output
+      when: inventory_hostname == "10.10.10.30"

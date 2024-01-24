@@ -1,0 +1,42 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Add nameserver entry to /etc/resolv.conf
+      ansible.builtin.lineinfile:
+        path: /etc/resolv.conf
+        line: "nameserver 8.8.8.8"
+
+    - name: Install libsemanage-python
+      ansible.builtin.yum:
+        name: libsemanage-python
+        state: present
+
+    - name: Install Apache web server
+      ansible.builtin.yum:
+        name: httpd
+        state: present  # Ensure Apache is installed
+
+    - name: Start Apache and enable it at boot
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: yes  # Enable Apache to start on boot
+
+    - name: Create a basic HTML file
+      ansible.builtin.copy:
+        content: "<html><body><h1>Welcome to My Website</h1></body></html>"
+        dest: /var/www/html/index.html
+        owner: apache
+        group: apache
+        mode: '0644'
+
+    - name: Set SELinux to allow Apache to connect to the network
+      ansible.builtin.seboolean:
+        name: httpd_can_network_connect
+        state: yes
+
+    - name: Restart Apache to apply changes
+      ansible.builtin.service:
+        name: httpd
+        state: restarted
