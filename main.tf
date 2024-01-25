@@ -29,6 +29,19 @@ data "vsphere_network" "network" {
   datacenter_id = data.vsphere_datacenter.datacenter.id
 }
 
+variable "hosts" {
+  default = [
+    "10.10.10.2",
+    "10.10.10.3"
+  ]  
+}
+
+data "vsphere_host" "host" {
+  count = "${length(var.hosts)}"
+  name              = "${var.hosts[count.index]}"
+  datacenter_id     =  data.vsphere_datacenter.datacenter.id
+}
+
 data "vsphere_virtual_machine" "template" {
   name          = "/${var.vsphere_datacenter}/vm/${var.vsphere-template-folder}/${var.vm-template-name}"
   datacenter_id = data.vsphere_datacenter.datacenter.id
@@ -75,19 +88,4 @@ resource "vsphere_virtual_machine" "vm" {
       ipv4_gateway = "10.10.10.1"
     }
   }
-
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "#!/bin/bash",
-  #     "echo \"$(cat ~/.ssh/id_rsa.pub)\" >> ~/.ssh/authorized_keys",
-  #     "chmod 600 ~/.ssh/authorized_keys"
-  #   ]
-
-  #   connection {
-  #     type        = "ssh"
-  #     host        = self.clone.0.customize.0.network_interface.0.ipv4_address 
-  #     user        = "root"
-  #     private_key = file("~/.ssh/id_rsa")
-  #   }
-  # }
 }

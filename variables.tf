@@ -21,6 +21,12 @@ variable "vsphere_datacenter" {
   type        = string
 }
 
+variable "vsphere_host" {
+  type = string
+  description = "target host"
+  
+}
+
 variable "vsphere_cluster" {
   description = "vSphere cluster"
   type        = string
