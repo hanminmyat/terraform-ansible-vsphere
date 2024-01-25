@@ -1,4 +1,4 @@
-vm-count = "2"
+vm-count = "3"
 vm-host-count = "30"
 vm-name = "hpc"
 vm-template-name = "CentOSTemplate"
