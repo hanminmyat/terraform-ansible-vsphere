@@ -1,5 +1,5 @@
 - name: Configure SSH on vSphere VMs
-  hosts: spark-cluster
+  hosts: all
   become: true
 
   tasks:

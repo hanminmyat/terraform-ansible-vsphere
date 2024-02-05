@@ -1,9 +1,9 @@
-vm-count = "3"
+vm-count = "4"
 vm-host-count = "30"
 vm-name = "hpc"
 vm-template-name = "CentOSTemplate"
 vm-cpu = "2"
-vm-ram = "2048"
+vm-ram = "4096"
 vm-guest-id = "centos7_64Guest"
 
 vsphere_server = "10.10.10.5"

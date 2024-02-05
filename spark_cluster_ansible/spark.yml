@@ -116,6 +116,7 @@
         state: enabled
         port: "{{ item }}"
       loop:
+        - 4040/tcp
         - 6066/tcp
         - 7077/tcp
         - 8080-8081/tcp
